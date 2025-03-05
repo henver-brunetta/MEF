@@ -1,14 +1,58 @@
-#short script to calculate MEF
 
-setwd("~/Library/CloudStorage/OneDrive-Personal/PD Guelph/pWAT project/proteome mouse")
-protsara <- read_excel("iWAT vs pWAT mouse analysis full.xlsx", sheet = 2)
+# Load and install required libraries
+check_install <- function(pkg, from_github = FALSE, repo = NULL, manager = "CRAN") {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    if (from_github) {
+      if (manager == "devtools") {
+        devtools::install_github(repo)
+      } else {
+        remotes::install_github(repo)
+      }
+    } else {
+      install.packages(pkg)
+    }
+  }
+  library(pkg, character.only = TRUE)
+}
 
-datclean <- protsara %>%
-  dplyr::select(-1, -2, -14, -15, -16, -17, -18, -19, -20, -21, -22, -23, -24, -25, -26, -27, -28)
+# Specify required libraries and their sources
+required_libraries <- list(
+  list(pkg = "devtools"),
+  list(pkg = "librarian"),
+  list(pkg = "BiocManager"),
+  list(pkg = "annotables", from_github = TRUE, repo = "stephenturner/annotables")
+)
+
+# Check and install each library as needed
+for (lib in required_libraries) {
+  do.call(check_install, lib)
+}
+
+
+# Install Biobase via BiocManager
+if (!requireNamespace("Biobase", quietly = TRUE)) {
+  BiocManager::install("Biobase")
+}
+library(Biobase)
+
+# Install exploratory data analysis packages
+eda_packages <- c("Amelia", "corrplot", "corrgram", "jtools", "ggiraph", "ggiraphExtra", "arm", "modelsummary")
+
+lapply(eda_packages, check_install)
+
+# Use librarian's shelf to load multiple packages
+shelf(dplyr, readxl, pheatmap, DESeq2, tidyverse, ggplot2, ggrepel, annotables, ashr,
+      clusterProfiler, org.Hs.eg.db, org.Mm.eg.db, KEGGREST, textshape, svDialogs, pathview, ggpubr, openxlsx,
+      Amelia)
+
+# set your working directory and load your data
+setwd()
+dataset <- read_excel()
+
+#clean your data to keep only protein names and MS intensities
 
 #mito carta ready to filter
-
-prot_clean <- datclean %>%
+prot_mito <- dataset %>%
   filter(ID %in% c("CYC1", "SDHB", "COQ7", "SDHA", "UQCRC1", "COQ5", "PDHA1", "COQ9", "MRPL12", "ATP5F1D",
                    "COX5A", "ISCA2", "PMPCB", "UQCRFS1", "ATP5F1A", "OGDH", "PDHB", "UQCRC2", "SDHD", "MRPS35",
                    "UQCRQ", "MRPL53", "DBT", "PDK4", "MDH2", "MRPS27", "CS", "GRPEL1", "DLAT", "LRPPRC",
@@ -128,46 +172,40 @@ prot_clean <- datclean %>%
                    "METTL4", "SPHKAP", "NAT8L", "MCCD1", "PIGBOS1", "HTD2", "RP11_469A15.2"))
 
 #always remember to save your data
-openxlsx::write.xlsx(prot_clean, file = "mito_proteins_ATdepot.xlsx", overwrite = T)
+openxlsx::write.xlsx(prot_mito, file = "mito_proteins.xlsx", overwrite = T)
 
 #summing LFQ from each sample individually - mito proteins only
-colnames(prot_clean) <- c("ID", "iWAT1", "iWAT2", "iWAT3", "iWAT4", "iWAT5",
-                          "pWAT1", "pWAT2", "pWAT3", "pWAT4", "pWAT5")
+colnames(prot_mito) <- c("ID", "x", "y", "z")
 
 # Columns to be converted to numeric
-cols_to_convert <- c("iWAT1", "iWAT2", "iWAT3", "iWAT4", "iWAT5",
-                     "pWAT1", "pWAT2", "pWAT3", "pWAT4", "pWAT5")
+cols_to_convert <- c("x", "y", "z")
 
 # Convert specified columns to numeric
-prot_clean[cols_to_convert] <- lapply(prot_clean[cols_to_convert], as.numeric)
+prot_mito[cols_to_convert] <- lapply(prot_mito[cols_to_convert], as.numeric)
 
 #removing ID
-prot_num <- prot_clean %>%
+prot_num <- prot_mito %>%
   dplyr::select(-1)
 
 #summing each colum
 prot_num <- colSums(prot_num, na.rm = T)
-
 print(prot_num)
 
 #summing LFQ from each sample individually - all proteins
-colnames(datclean) <- c("ID", "iWAT1", "iWAT2", "iWAT3", "iWAT4", "iWAT5",
-                          "pWAT1", "pWAT2", "pWAT3", "pWAT4", "pWAT5")
+colnames(dataset) <- c("ID", "x", "y", "z")
 
 # Columns to be converted to numeric
-cols_to_convert <- c("iWAT1", "iWAT2", "iWAT3", "iWAT4", "iWAT5",
-                     "pWAT1", "pWAT2", "pWAT3", "pWAT4", "pWAT5")
+cols_to_convert <- c("x", "y", "z")
 
 # Convert specified columns to numeric
-datclean[cols_to_convert] <- lapply(datclean[cols_to_convert], as.numeric)
+dataset[cols_to_convert] <- lapply(dataset[cols_to_convert], as.numeric)
 
 #removing ID
-full_list <- datclean %>%
+full_list <- dataset %>%
   dplyr::select(-1)
 
 #summing each colum
 full_list <- colSums(full_list, na.rm = T)
-
 print(full_list)
 
 #calculating MEF
@@ -190,4 +228,4 @@ print("Data Frame with Result Column:")
 print(mef)
 
 #always remember to save your data
-openxlsx::write.xlsx(mef, file = "MEF overlapped proteins AT depots.xlsx", overwrite = T)
+openxlsx::write.xlsx(mef, file = "MEF overlapped proteins.xlsx", overwrite = T)
